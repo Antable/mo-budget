@@ -500,9 +500,12 @@ export default function MoBudget() {
   });
   const [tab, setTab] = useState("groups");
   const [toast, setToast] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem("mo_budget_theme") || "dark");
   const importRef = useRef();
 
   useEffect(()=>{ saveStore(data); },[data]);
+  useEffect(()=>{ localStorage.setItem("mo_budget_theme", theme); },[theme]);
+  function toggleTheme(){ setTheme(t => t==="dark" ? "light" : "dark"); }
 
   function showToast(msg){ setToast(msg); setTimeout(()=>setToast(null),2400); }
 
@@ -536,6 +539,7 @@ export default function MoBudget() {
   }
 
   return (
+    <div style={{ filter: theme==="light" ? "invert(1) hue-rotate(180deg)" : "none", minHeight:"100vh" }}>
     <div style={{ minHeight:"100vh", direction:"rtl", background:"#0d0d14", fontFamily:"'Cairo','Segoe UI',sans-serif", color:"#fff" }}>
       <div style={{ position:"fixed", top:"10%", right:"-5%", width:280, height:280, borderRadius:"50%", background:"radial-gradient(circle,rgba(108,92,231,0.12),transparent 70%)", pointerEvents:"none" }}/>
       <div style={{ position:"fixed", bottom:"5%", left:"-5%", width:220, height:220, borderRadius:"50%", background:"radial-gradient(circle,rgba(78,205,196,0.08),transparent 70%)", pointerEvents:"none" }}/>
@@ -543,7 +547,13 @@ export default function MoBudget() {
       <div style={{ maxWidth:500, margin:"0 auto", padding:"20px 14px 100px", position:"relative", zIndex:1 }}>
 
         {/* Header */}
-        <div style={{ textAlign:"center", marginBottom:18 }}>
+        <div style={{ textAlign:"center", marginBottom:18, position:"relative" }}>
+          <button onClick={toggleTheme} style={{
+            position:"absolute", left:0, top:0,
+            background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)",
+            borderRadius:10, color:"#fff", cursor:"pointer", fontSize:18,
+            width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center",
+          }}>{theme==="dark" ? "☀️" : "🌙"}</button>
           <div style={{ fontSize:11, letterSpacing:3, color:"rgba(255,255,255,0.3)", marginBottom:4 }}>BUDGET TRACKER</div>
           <h1 style={{ margin:0, fontSize:22, fontWeight:800, background:"linear-gradient(90deg,#fff 60%,rgba(108,92,231,0.8))", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>ميزانية Mo</h1>
         </div>
@@ -631,7 +641,9 @@ export default function MoBudget() {
         * { box-sizing:border-box; }
         input:focus { outline:1px solid rgba(108,92,231,0.4); }
         input[type=number]::-webkit-inner-spin-button { opacity:0.3; }
+        ${theme==="light" ? `.emoji-fix { display:inline-block; filter: invert(1) hue-rotate(180deg); }` : ``}
       `}</style>
+    </div>
     </div>
   );
 }
