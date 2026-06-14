@@ -4,12 +4,13 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const fmt = (n) => Number(n || 0).toLocaleString("ar-EG");
 const DAYS_AR = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-const STORAGE_KEY = "mo_budget_v3";
+const STORAGE_PREFIX = "mo_budget_v3_";
 
-function loadStore() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; } catch { return null; }
+function monthKey(year, month) { return `${STORAGE_PREFIX}${year}_${month}`; }
+function loadStore(year, month) {
+  try { return JSON.parse(localStorage.getItem(monthKey(year, month))) || null; } catch { return null; }
 }
-function saveStore(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+function saveStore(data) { localStorage.setItem(monthKey(data.year, data.month), JSON.stringify(data)); }
 
 function makeItem(label = "بند", unitPrice = "", times = 1) {
   return { id: uid(), label, unitPrice, timesExpected: times, checkedBoxes: 0, extraActual: 0 };
@@ -494,8 +495,8 @@ export default function MoBudget() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [data, setData] = useState(() => {
-    const s = loadStore();
-    if (s && s.year===now.getFullYear() && s.month===now.getMonth()) return s;
+    const s = loadStore(now.getFullYear(), now.getMonth());
+    if (s) return s;
     return makeMonthData(now.getFullYear(), now.getMonth());
   });
   const [tab, setTab] = useState("groups");
@@ -518,8 +519,8 @@ export default function MoBudget() {
   function prevMonth(){ const d=new Date(year,month-1,1); setYear(d.getFullYear()); setMonth(d.getMonth()); }
   function nextMonth(){ const d=new Date(year,month+1,1); setYear(d.getFullYear()); setMonth(d.getMonth()); }
   function loadMonth(){
-    const s=loadStore();
-    if(s&&s.year===year&&s.month===month){ setData(s); showToast("✅ اتحمل"); }
+    const s=loadStore(year, month);
+    if(s){ setData(s); showToast("✅ اتحمل"); }
     else { setData(makeMonthData(year,month)); showToast("🆕 شهر جديد"); }
   }
 
