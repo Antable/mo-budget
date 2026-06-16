@@ -244,6 +244,7 @@ function WorkDaysCard({ workDays, onChange }) {
   const [open, setOpen] = useState(false);
   const totalActual = workDays.days.reduce((s,d) => s+(parseFloat(d.amount)||0), 0);
   const avgExp = (parseFloat(workDays.transportExpected)||0)+(parseFloat(workDays.foodExpected)||0);
+  const wrkExp = avgExp * 5 * 4;
   const workCount = workDays.days.filter(d=>!d.isHoliday&&parseFloat(d.amount)>0).length;
 
   function updateDay(idx,field,val) {
@@ -259,7 +260,8 @@ function WorkDaysCard({ workDays, onChange }) {
           <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:2 }}>{workCount} يوم · متوسط {fmt(avgExp)} ج/يوم</div>
         </div>
         <div style={{ textAlign:"left" }}>
-          <div style={{ fontSize:13, fontWeight:700 }}>{fmt(totalActual)} ج</div>
+          <div style={{ fontSize:13, fontWeight:700, color: totalActual > wrkExp ? "#FF6B6B" : "#4ECDC4" }}>{fmt(totalActual)} ج</div>
+          <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>من {fmt(wrkExp)} ج</div>
         </div>
         <span style={{ color:"rgba(255,255,255,0.3)", fontSize:16, marginRight:4 }}>{open?"▲":"▼"}</span>
       </div>
@@ -311,8 +313,7 @@ function Summary({ data }) {
   const grpAct = data.groups.reduce((s,g)=>s+groupActual(g),0);
   const wrkAct = data.workDays.days.reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
   const avgExp = (parseFloat(data.workDays.transportExpected)||0)+(parseFloat(data.workDays.foodExpected)||0);
-  const wrkCount = data.workDays.days.filter(d=>!d.isHoliday&&parseFloat(d.amount)>0).length;
-  const wrkExp = avgExp * Math.max(wrkCount,1);
+  const wrkExp = avgExp * 5 * 4; // 5 days x 4 weeks
 
   const totalExp = grpExp + wrkExp;
   const totalAct = grpAct + wrkAct;
