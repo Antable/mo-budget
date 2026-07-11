@@ -490,6 +490,140 @@ function BudgetModePanel({ data, onTotalChange, onShareChange }) {
   );
 }
 
+// ── Analytics Page ────────────────────────────────────────────────────────────
+function AnalyticsPage() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+
+  // Load all months for selected year
+  const months = Array.from({length:12}, (_,i) => {
+    const d = loadStore(selectedYear, i);
+    if (!d) return { month:i, hasData:false, expected:0, actual:0 };
+    const grpExp = d.groups.reduce((s,g)=>s+groupExpected(g),0);
+    const grpAct = d.groups.reduce((s,g)=>s+groupActual(g),0);
+    const wrkAct = d.workDays.days.reduce((s,day)=>s+(parseFloat(day.amount)||0),0);
+    const avgExp = (parseFloat(d.workDays.transportExpected)||0)+(parseFloat(d.workDays.foodExpected)||0);
+    const wrkExp = avgExp * 5 * 4;
+    return {
+      month:i, hasData:true,
+      expected: grpExp + wrkExp,
+      actual: grpAct + wrkAct,
+    };
+  });
+
+  // Cumulative balance
+  let cumulative = 0;
+  const monthsWithCum = months.map(m => {
+    if (m.hasData) cumulative += (m.expected - m.actual);
+    return { ...m, cumulative };
+  });
+
+  const quarters = [
+    { label:"Q1 (يناير-مارس)", months:[0,1,2] },
+    { label:"Q2 (أبريل-يونيو)", months:[3,4,5] },
+    { label:"Q3 (يوليو-سبتمبر)", months:[6,7,8] },
+    { label:"Q4 (أكتوبر-ديسمبر)", months:[9,10,11] },
+  ];
+
+  const maxVal = Math.max(...months.map(m => Math.max(m.expected, m.actual)), 1);
+
+  return (
+    <div style={{ padding:"0 0 20px" }}>
+      {/* Year selector */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:20 }}>
+        <button onClick={()=>setSelectedYear(y=>y-1)} style={navBtn}>‹</button>
+        <span style={{ fontSize:18, fontWeight:700 }}>{selectedYear}</span>
+        <button onClick={()=>setSelectedYear(y=>y+1)} style={navBtn}>›</button>
+      </div>
+
+      {/* Cumulative balance card */}
+      <div style={{ background:"rgba(255,255,255,0.05)", borderRadius:16, padding:16, marginBottom:16, border:"1px solid rgba(255,255,255,0.08)" }}>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:8 }}>الرصيد التراكمي للسنة</div>
+        {(() => {
+          const lastCum = monthsWithCum.filter(m=>m.hasData).slice(-1)[0];
+          const bal = lastCum ? lastCum.cumulative : 0;
+          return (
+            <div>
+              <div style={{ fontSize:28, fontWeight:800, color: bal>=0 ? "#4ECDC4" : "#FF6B6B" }}>
+                {bal>=0?"+":""}{fmt(bal)} ج
+              </div>
+              <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:4 }}>
+                {bal>=0 ? "✅ أنت في المنطقة الآمنة" : `⚠️ محتاج توفر ${fmt(Math.abs(bal))} ج لتعويض الخسارة`}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Bar chart */}
+      <div style={{ background:"rgba(255,255,255,0.04)", borderRadius:16, padding:16, marginBottom:16, border:"1px solid rgba(255,255,255,0.07)" }}>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:12 }}>متوقع vs فعلي</div>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:120, marginBottom:8 }}>
+          {months.map((m,i) => {
+            const expH = m.expected>0 ? (m.expected/maxVal)*100 : 0;
+            const actH = m.actual>0 ? (m.actual/maxVal)*100 : 0;
+            const over = m.actual > m.expected && m.hasData;
+            return (
+              <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2, height:"100%", justifyContent:"flex-end" }}>
+                <div style={{ width:"100%", display:"flex", gap:1, alignItems:"flex-end", height:"100%" }}>
+                  <div style={{ flex:1, background:"rgba(108,92,231,0.5)", borderRadius:"3px 3px 0 0", height:`${expH}%`, minHeight: m.hasData?2:0 }}/>
+                  <div style={{ flex:1, background: over?"#FF6B6B":"#4ECDC4", borderRadius:"3px 3px 0 0", height:`${actH}%`, minHeight: m.hasData?2:0 }}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display:"flex", gap:4, overflowX:"auto" }}>
+          {MONTHS_AR.map((m,i) => (
+            <div key={i} style={{ flex:1, textAlign:"center", fontSize:9, color:"rgba(255,255,255,0.3)", minWidth:20 }}>{m.slice(0,3)}</div>
+          ))}
+        </div>
+        <div style={{ display:"flex", gap:12, marginTop:10, fontSize:11 }}>
+          <span style={{ color:"rgba(108,92,231,0.8)" }}>■ متوقع</span>
+          <span style={{ color:"#4ECDC4" }}>■ فعلي (ضمن)</span>
+          <span style={{ color:"#FF6B6B" }}>■ فعلي (زيادة)</span>
+        </div>
+      </div>
+
+      {/* Quarters */}
+      {quarters.map((q,qi) => {
+        const qMonths = q.months.map(i => monthsWithCum[i]);
+        const qExp = qMonths.reduce((s,m)=>s+m.expected,0);
+        const qAct = qMonths.reduce((s,m)=>s+m.actual,0);
+        const qDiff = qExp - qAct;
+        const hasAny = qMonths.some(m=>m.hasData);
+        return (
+          <div key={qi} style={{ background:"rgba(255,255,255,0.04)", borderRadius:14, padding:14, marginBottom:10, border:"1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+              <span style={{ fontSize:13, fontWeight:700 }}>{q.label}</span>
+              {hasAny && <span style={{ fontSize:13, fontWeight:700, color: qDiff>=0?"#4ECDC4":"#FF6B6B" }}>{qDiff>=0?"+":""}{fmt(qDiff)} ج</span>}
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              {qMonths.map((m,i) => {
+                const diff = m.expected - m.actual;
+                return (
+                  <div key={i} style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"8px 6px", textAlign:"center", border:`1px solid ${!m.hasData?"rgba(255,255,255,0.05)":diff>=0?"rgba(78,205,196,0.2)":"rgba(255,107,107,0.2)"}` }}>
+                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>{MONTHS_AR[m.month].slice(0,3)}</div>
+                    {m.hasData ? (
+                      <>
+                        <div style={{ fontSize:11, color:"rgba(255,255,255,0.6)" }}>{fmt(m.actual)}</div>
+                        <div style={{ fontSize:10, color: diff>=0?"#4ECDC4":"#FF6B6B", marginTop:2 }}>{diff>=0?"+":""}{fmt(diff)}</div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize:10, color:"rgba(255,255,255,0.2)" }}>—</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function MoBudget() {
   const now = new Date();
@@ -501,6 +635,7 @@ export default function MoBudget() {
     return makeMonthData(now.getFullYear(), now.getMonth());
   });
   const [tab, setTab] = useState("groups");
+  const [page, setPage] = useState("main"); // "main" | "analytics"
   const [toast, setToast] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem("mo_budget_theme") || "dark");
   const importRef = useRef();
@@ -556,9 +691,18 @@ export default function MoBudget() {
             borderRadius:10, color:"#fff", cursor:"pointer", fontSize:18,
             width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center",
           }}>{theme==="dark" ? "☀️" : "🌙"}</button>
+          <button onClick={()=>setPage(p=>p==="main"?"analytics":"main")} style={{
+            position:"absolute", right:0, top:0,
+            background: page==="analytics"?"rgba(108,92,231,0.3)":"rgba(255,255,255,0.06)",
+            border: page==="analytics"?"1px solid rgba(108,92,231,0.5)":"1px solid rgba(255,255,255,0.12)",
+            borderRadius:10, color:"#fff", cursor:"pointer", fontSize:18,
+            width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center",
+          }}>📊</button>
           <div style={{ fontSize:11, letterSpacing:3, color:"rgba(255,255,255,0.3)", marginBottom:4 }}>BUDGET TRACKER</div>
           <h1 style={{ margin:0, fontSize:22, fontWeight:800, background:"linear-gradient(90deg,#fff 60%,rgba(108,92,231,0.8))", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>ميزانية Mo</h1>
         </div>
+
+        {page==="analytics" ? <AnalyticsPage /> : (<>
 
         {/* Mode toggle */}
         <div style={{ display:"flex", background:"rgba(255,255,255,0.05)", borderRadius:14, padding:4, marginBottom:16, border:"1px solid rgba(255,255,255,0.08)" }}>
@@ -632,6 +776,7 @@ export default function MoBudget() {
         {tab==="days" && (
           <WorkDaysCard workDays={data.workDays} onChange={wd=>setData(d=>({...d,workDays:wd}))} />
         )}
+        </>)}
       </div>
 
       {toast && (
